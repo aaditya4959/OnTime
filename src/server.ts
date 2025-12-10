@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Telegraf } from "telegraf";
+import { getJSONFromText } from "./utils/apiCall.js";
 
 dotenv.config();
 const PORT = process.env.PORT || 3000;
@@ -30,8 +31,63 @@ bot.help((context) => {
 // Echor handler for all the text messages that are not commands
 bot.on("text", (context) => {
     const userText = context.message.text;
-    context.reply(`You said: ${userText}`);
+    
+    const customPrompt = `
+        You are an AI assistant that extracts structured event information from natural-language text messages.  
+        Your task is to analyze the user’s message and convert it into the following JSON format:
+
+        {
+        "intent": "",
+        "title": "",
+        "participants": [],
+        "date": "",
+        "time": "",
+        "reminder": ""
+        }
+
+        Follow these rules strictly:
+
+        1. Determine the user's intent:
+        - "create_event" → if the user wants to schedule, set, plan, book, or arrange something.
+        - "unknown" → if the message does not indicate any event creation.
+
+        2. "title":
+        - Create a short, meaningful event title based on the message.
+        - If unclear, infer a reasonable title from context.
+
+        3. "participants":
+        - Extract names, email addresses, or groups mentioned.
+        - Return an empty array if none are found.
+
+        4. "date":
+        - Convert dates like "tomorrow", "next Monday", "5th Jan", etc. into ISO format (YYYY-MM-DD).
+        - If no date is mentioned, return an empty string.
+
+        5. "time":
+        - Convert times like "3 pm", "evening", "11:30", "after lunch" into HH:MM (24-hour format).
+        - If unclear or missing, return an empty string.
+
+        6. "reminder":
+        - Extract reminders like "remind me 10 mins before", "1 hour before", "a day before".
+        - Default: "30m" if user wants an event but no reminder is specified.
+
+        7. If any field is not applicable or missing, return an empty string or empty array as appropriate.
+
+        8. Output strictly valid JSON. No explanations, no extra text.
+
+    `
+    getJSONFromText(customPrompt, userText).then((responseText) => {
+        context.reply(responseText);
+    }).catch((error) => {
+        console.error("Error processing user message:", error);
+        context.reply("Sorry, there was an error processing your message.");
+    });
+
+
+
 })
+
+
 
 
 
