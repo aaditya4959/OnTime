@@ -1,4 +1,5 @@
 import type { NarrowedContext } from "telegraf";
+import { buildFollowupQuestion } from "./followUP.js";
 import * as z from "zod";
 
 
@@ -12,10 +13,13 @@ const llmResponseSchema = z.object({
 })
 
 interface LLMResponse {
+    needs_more_info?: boolean;
+    ask?: string;
+    missing_fields?: string[];
     intent: string;
     title: string;
     participants: string[];
-    date: string;
+    date: string
     time: string;
     reminder: string;
 }
@@ -39,9 +43,25 @@ const responseParser = async (responseText: string):Promise<LLMResponse>  => {
     const parsed = await llmResponseSchema.safeParse(JSON.parse(jsonString));
 
     if (!parsed.success) {
-        console.error("Invalid LLM response format:", parsed.error);
-        throw new Error("Invalid LLM response format");
+        console.error("Invalid LLM response:", parsed.error);
+
+        // Extract which fields are missing/invalid
+        const issues = parsed.error.issues;
+
+        const missingFields = issues.map(issue => issue.path.join("."));
+
+        return {
+            needs_more_info: true,
+            //@ts-ignore
+            ask: buildFollowupQuestion(missingFields),
+            missing_fields: missingFields
+        };
     }
+    return {
+        needs_more_info: false,
+        //@ts-ignore
+        data: parsed.data
+    };
 
     return JSON.parse(jsonString);
 

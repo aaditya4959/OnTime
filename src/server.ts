@@ -61,7 +61,7 @@ bot.on("text", (context) => {
         - Return an empty array if none are found.
 
         4. "date":
-        - Convert dates like "tomorrow", "next Monday", "5th Jan", etc. into ISO format (YYYY-MM-DD).
+        - Convert dates like "tomorrow", "next Monday", "5th Jan", etc. into format (DD-MM-YYYY).
         - If no date is mentioned, return an empty string.
 
         5. "time":

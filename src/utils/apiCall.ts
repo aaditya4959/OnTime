@@ -10,15 +10,28 @@ const client = new GoogleGenAI({
 
 const getJSONFromText = async (prompt: string, userText: string)=> {
     const now = new Date();
-    const day = now.getDay()-1;
+    const day = now.getDay();
+    const date= now.getDate();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const seconds = now.getSeconds();
 
+    const days = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+    ];
+        
+    
+
     // for the context of present date and time
-    const formattedDateTime = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    const formattedDateTime = `${date}/${month}/${year} ${hours}:${minutes}:${seconds} (Day: ${days[day]} )`;
     try{
         const response = await client.models.generateContent({
             model: "gemini-2.5-flash",
