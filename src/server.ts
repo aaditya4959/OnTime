@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { Telegraf } from "telegraf";
 import { getJSONFromText } from "./utils/apiCall.js";
+import { responseParser } from "./utils/responseParser.js";
 
 dotenv.config();
 const PORT = process.env.PORT || 3000;
@@ -76,19 +77,10 @@ bot.on("text", (context) => {
         8. Give back just the JSON without any extra text or explanation.
 
     `
-    getJSONFromText(customPrompt, userText).then((responseText) => {
+    getJSONFromText(customPrompt, userText).then(async  (responseText) => {
 
-        const text = responseText;
-        const jsonMatch = text.match(/```json([\s\S]*?)```/);
-
-        let jsonString = "";
-        let textString = text;
-
-        if (jsonMatch) {
-            //@ts-ignore
-            jsonString = jsonMatch[1].trim(); // JSON code block
-            textString = text.replace(jsonMatch[0], "").trim(); // rest of the text
-        }
+        const jsonResponse = await responseParser(responseText);
+        const jsonString  = JSON.stringify(jsonResponse, null, 2 );
 
         context.reply(jsonString);
         
