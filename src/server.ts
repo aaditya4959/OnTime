@@ -34,7 +34,7 @@ bot.on("text", (context) => {
     
     const customPrompt = `
         You are an AI assistant that extracts structured event information from natural-language text messages.  
-        Your task is to analyze the user’s message and convert it into the following JSON format:
+        Your task is to analyze the user's message and convert it into the following JSON format:
 
         {
         "intent": "",
@@ -73,11 +73,25 @@ bot.on("text", (context) => {
 
         7. If any field is not applicable or missing, return an empty string or empty array as appropriate.
 
-        8. Output strictly valid JSON. No explanations, no extra text.
+        8. Give back just the JSON without any extra text or explanation.
 
     `
     getJSONFromText(customPrompt, userText).then((responseText) => {
-        context.reply(responseText);
+
+        const text = responseText;
+        const jsonMatch = text.match(/```json([\s\S]*?)```/);
+
+        let jsonString = "";
+        let textString = text;
+
+        if (jsonMatch) {
+            //@ts-ignore
+            jsonString = jsonMatch[1].trim(); // JSON code block
+            textString = text.replace(jsonMatch[0], "").trim(); // rest of the text
+        }
+
+        context.reply(jsonString);
+        
     }).catch((error) => {
         console.error("Error processing user message:", error);
         context.reply("Sorry, there was an error processing your message.");
