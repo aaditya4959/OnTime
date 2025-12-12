@@ -82,6 +82,8 @@ bot.on("text", (context) => {
         const jsonResponse = await responseParser(responseText);
         const jsonString  = JSON.stringify(jsonResponse, null, 2 );
 
+        // 
+
         context.reply(jsonString);
         
     }).catch((error) => {
