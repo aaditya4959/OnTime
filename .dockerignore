@@ -1,0 +1,26 @@
+# Ignore node_modules - never copy dependencies into the image
+node_modules
+
+# Ignore build output (Docker will generate its own dist folder)
+dist
+
+# Git + logs
+.git
+.gitignore
+npm-debug.log
+yarn-error.log
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# OS / editor files
+.DS_Store
+.vscode
+.idea
+
+# Docker-specific
+Dockerfile
+docker-compose.yml
