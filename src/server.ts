@@ -1,4 +1,7 @@
 import express from "express";
+import session from "express-session";
+import passport from "passport";
+import authRoutes from "./routes/auth.routes.js";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Telegraf } from "telegraf";
@@ -6,6 +9,11 @@ import { getJSONFromText } from "./utils/apiCall.js";
 import { responseParser } from "./utils/responseParser.js";
 
 dotenv.config();
+
+// importing the passport file
+import "./auth/passport.js";
+
+
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || "";
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "default";
@@ -104,6 +112,19 @@ const app = express();
 
 app.use(express.json());
 app.use(cors());
+// sesssion for passport 
+app.use(
+    session({
+        secret: process.env.SESSION_SECRET!,
+        resave: false,
+        saveUninitialized: false
+    })
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
+// registeration of the routes in the application
+app.use("/auth", authRoutes);
 
 //Telegraf webhook middleware
 app.use(bot.webhookCallback(WEBHOOK_PATH, {
