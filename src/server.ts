@@ -37,6 +37,20 @@ bot.help((context) => {
     context.reply("I will help you stay on time!");
 });
 
+// Authentication handler ( All the code for the redirecting authentication will be written here.)
+bot.command("google_auth", (context) => {
+    const telegramId = context.from.id;
+    console.log(`Received Google Auth request from Telegram user ID: ${telegramId}`);  // working 
+
+    context.reply("Redirecting to Google authentication... ");
+    // Here we would typically provide a link for the user to authenticate with Google
+    const authUrl = `${process.env.WEBHOOK_URL}/auth/google?telegramId=${telegramId}`;
+    context.reply(`Please authenticate with Google by clicking the link: ${authUrl}`);
+    
+    
+    
+})
+
 // Echor handler for all the text messages that are not commands
 bot.on("text", (context) => {
     const userText = context.message.text;
