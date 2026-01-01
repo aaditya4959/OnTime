@@ -12,6 +12,8 @@ dotenv.config();
 
 // importing the passport file
 import "./auth/passport.js";
+import { buildFollowupQuestion } from "./utils/followUP.js";
+import { json } from "zod";
 
 
 const PORT = process.env.PORT || 3000;
@@ -46,8 +48,6 @@ bot.command("google_auth", (context) => {
     // Here we would typically provide a link for the user to authenticate with Google
     const authUrl = `${process.env.WEBHOOK_URL}/auth/google?telegramId=${telegramId}`;
     context.reply(`Please authenticate with Google by clicking the link: ${authUrl}`);
-    
-    
     
 })
 
@@ -102,6 +102,26 @@ bot.on("text", (context) => {
     getJSONFromText(customPrompt, userText).then(async  (responseText) => {
 
         const jsonResponse = await responseParser(responseText);
+        // Extraction of individual fields from the jsonResponse object and scheduling it in th google calender
+        // Logic:-
+        // 1. check the needMoreInfo field in the jsonResponse object
+        const needMoreInfo = jsonResponse.needs_more_info;
+        
+        if(needMoreInfo){
+            const missingFields = jsonResponse.missing_fields || [];
+            const followupQuestion = buildFollowupQuestion(missingFields);
+            context.reply(followupQuestion);
+            return;
+        }
+        
+        else if(!needMoreInfo && jsonResponse.intent === "create_event"){
+            // Proceed to schedule the event in Google Calendar
+            context.reply("All necessary information received. Scheduling your event now...");
+        }
+
+
+
+
         const jsonString  = JSON.stringify(jsonResponse, null, 2 );
 
         // 

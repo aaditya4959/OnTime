@@ -7,7 +7,9 @@ function buildFollowupQuestion(fields: string[]) {
     }
 
     // For multiple missing fields → ask them one by one
-    return fields.map(f => generateQuestion(f));
+    const questions = fields.map(f => generateQuestion(f)).join(",");
+    
+    return `I need more information to schedule your event. Please provide the following details: ${questions}`;
 }
 
 function generateQuestion(field: string): string {
