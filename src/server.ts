@@ -7,6 +7,8 @@ import dotenv from "dotenv";
 import { Telegraf } from "telegraf";
 import { getJSONFromText } from "./utils/apiCall.js";
 import { responseParser } from "./utils/responseParser.js";
+import { requireAuth } from "./middleware/authMiddleware.js";
+import { client as redisClient } from "./services/redis.service.js";
 
 dotenv.config();
 
@@ -52,7 +54,7 @@ bot.command("google_auth", (context) => {
 })
 
 // Echor handler for all the text messages that are not commands
-bot.on("text", (context) => {
+bot.on("text", requireAuth, (context) => {
     const userText = context.message.text;
     
     const customPrompt = `
