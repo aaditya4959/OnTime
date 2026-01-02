@@ -10,7 +10,7 @@ const client = new GoogleGenAI({
 
 const getJSONFromText = async (prompt: string, userText: string)=> {
     const now = new Date();
-    const day = now.getDay();
+    const day = now.getDay(); // 0 = Sunday, 6 = Saturday
     const date= now.getDate();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
@@ -19,19 +19,20 @@ const getJSONFromText = async (prompt: string, userText: string)=> {
     const seconds = now.getSeconds();
 
     const days = [
+        "Sunday",
         "Monday",
         "Tuesday",
         "Wednesday",
         "Thursday",
         "Friday",
-        "Saturday",
-        "Sunday"
+        "Saturday"
     ];
         
     
 
-    // for the context of present date and time
-    const formattedDateTime = `${date}/${month}/${year} ${hours}:${minutes}:${seconds} (Day: ${days[day]} )`;
+    // for the context of present date and time (ISO + readable)
+    const iso = now.toISOString();
+    const formattedDateTime = `${iso} (Local: ${date}/${month}/${year} ${hours}:${minutes}:${seconds} - ${days[day]})`;
     try{
         const response = await client.models.generateContent({
             model: "gemini-2.5-flash",

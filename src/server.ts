@@ -9,6 +9,9 @@ import { getJSONFromText } from "./utils/apiCall.js";
 import { responseParser } from "./utils/responseParser.js";
 import { requireAuth } from "./middleware/authMiddleware.js";
 import { client as redisClient } from "./services/redis.service.js";
+import { getOAuthTokens } from "./services/redis.service.js";
+import { scheduleEventInGoogleCalender } from "./utils/eventScheduler.js";
+import { google } from "googleapis";
 
 dotenv.config();
 
@@ -119,6 +122,139 @@ bot.on("text", requireAuth, (context) => {
         else if(!needMoreInfo && jsonResponse.intent === "create_event"){
             // Proceed to schedule the event in Google Calendar
             context.reply("All necessary information received. Scheduling your event now...");
+
+            const telegramId = context.from.id;
+
+            try{
+                const tokens = await getOAuthTokens(telegramId);
+                if(!tokens){
+                    context.reply("I can't find your Google credentials. Please authenticate using /google_auth first.");
+                } else {
+                    // Build OAuth2 client
+                    const oAuth2Client = new google.auth.OAuth2(
+                        process.env.GOOGLE_CLIENT_ID,
+                        process.env.GOOGLE_CLIENT_SECRET
+                    );
+
+                    oAuth2Client.setCredentials({
+                        access_token: tokens.accessToken,
+                        refresh_token: tokens.refreshToken
+                    });
+
+                    // Build event details
+                    const title = jsonResponse.title || "New Event";
+                    const participants = jsonResponse.participants || [];
+                    const dateStr = jsonResponse.date || ""; // expected DD-MM-YYYY or similar
+                    const timeStr = jsonResponse.time || ""; // expected HH:MM
+                    const reminderStr = jsonResponse.reminder || "30m";
+
+                    // helper to parse date/time into ISO
+                    const parseDateTime = (dateS: string, timeS: string) => {
+                        const tz = process.env.TIMEZONE || "UTC";
+                        let start = new Date();
+                        if(dateS){
+                            // accept DD-MM-YYYY or DD/MM/YYYY or YYYY-MM-DD
+                            let dParts = dateS.includes("-") ? dateS.split("-") : dateS.split("/");
+                            if(dParts.length === 3){
+                                let day = Number(dParts[0]);
+                                let month = Number(dParts[1]);
+                                let year = Number(dParts[2]);
+                                // handle if year first
+                                if(year < 1000){ // might be DD MM YYYY
+                                    // noop
+                                } else if(day > 31){
+                                    // maybe YYYY-MM-DD
+                                    year = Number(dParts[0]);
+                                    month = Number(dParts[1]);
+                                    day = Number(dParts[2]);
+                                }
+                                start = new Date(year, month - 1, day);
+                            }
+                        }
+                        if(timeS){
+                            // parse HH:MM or h am/pm
+                            let hh = 0, mm = 0;
+                            const timeLower = timeS.toLowerCase().trim();
+                            if(timeLower.includes(":")){
+                                const parts = timeLower.split(":");
+                                hh = Number(parts[0]);
+                                mm = Number(parts[1]) || 0;
+                            } else if(timeLower.includes("am") || timeLower.includes("pm")){
+                                const m = timeLower.match(/(\d+)(?::(\d+))?\s*(am|pm)/);
+                                if(m){
+                                    hh = Number(m[1]);
+                                    mm = Number(m[2]||0);
+                                    if(m[3] === "pm" && hh < 12) hh += 12;
+                                    if(m[3] === "am" && hh === 12) hh = 0;
+                                }
+                            } else if(/^\d{1,2}$/.test(timeLower)){
+                                hh = Number(timeLower);
+                                mm = 0;
+                            }
+                            start.setHours(hh, mm, 0, 0);
+                        } else {
+                            // default start at now
+                            start = new Date();
+                        }
+                        return { iso: start.toISOString(), dateObj: start, timeZone: tz };
+                    };
+
+                    const startInfo = parseDateTime(dateStr, timeStr);
+                    const endDateObj = new Date(startInfo.dateObj.getTime() + (60 * 60 * 1000)); // default 1 hour
+
+                    // parse participants into attendees (only emails will be added as attendees)
+                    const attendees = participants
+                        .filter((p: string) => p.includes("@"))
+                        .map((email: string) => ({ email }));
+
+                    // parse reminder like "30m", "1h", "1d"
+                    const parseReminderToMinutes = (r: string) => {
+                        if(!r) return 30;
+                        const lower = r.toLowerCase();
+                        const m = lower.match(/(\d+)\s*(m|min|mins|h|hr|hrs|d|day|days)?/);
+                        if(!m) return 30;
+                        const v = Number(m[1]);
+                        const unit = m[2] || "m";
+                        if(unit.startsWith("h")) return v * 60;
+                        if(unit.startsWith("d")) return v * 60 * 24;
+                        return v; // minutes
+                    };
+
+                    const minutesBefore = parseReminderToMinutes(reminderStr);
+
+                    const eventDetails = {
+                        summary: title,
+                        description: `Created by OnTime Bot. Participants: ${participants.join(", ")}`,
+                        start: {
+                            dateTime: startInfo.iso,
+                            timeZone: startInfo.timeZone
+                        },
+                        end: {
+                            dateTime: endDateObj.toISOString(),
+                            timeZone: startInfo.timeZone
+                        },
+                        attendees,
+                        reminders: {
+                            useDefault: false,
+                            overrides: [
+                                { method: "popup", minutes: minutesBefore }
+                            ]
+                        }
+                    };
+
+                    try{
+                        const created = await scheduleEventInGoogleCalender(eventDetails, oAuth2Client);
+                        //@ts-ignore
+                        context.reply(`Event scheduled: ${created.htmlLink || created.summary || 'created'}`);
+                    } catch(err:any){
+                        console.error("Error creating calendar event:", err);
+                        context.reply("Failed to schedule event in Google Calendar. Please try again.");
+                    }
+                }
+            } catch(err:any){
+                console.error("Error while preparing to schedule event:", err);
+                context.reply("An error occurred while scheduling the event.");
+            }
         }
 
 
@@ -128,7 +264,7 @@ bot.on("text", requireAuth, (context) => {
 
         // 
 
-        context.reply(jsonString);
+        //context.reply(jsonString);
         
     }).catch((error) => {
         console.error("Error processing user message:", error);
